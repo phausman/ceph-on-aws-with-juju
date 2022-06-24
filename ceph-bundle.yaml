@@ -1,0 +1,61 @@
+series: focal
+variables:
+  openstack-origin: &openstack-origin cloud:focal-yoga
+  customize-failure-domain: &customize-failure-domain True
+  expected-osd-count: &expected-osd-count 3
+  expected-mon-count: &expected-mon-count 1
+
+machines:
+  "0":
+    constraints: "instance-type=t3.small"
+  "1":
+    constraints: "instance-type=t3.medium"
+  "2":
+    constraints: "instance-type=t3.medium"
+  "3":
+    constraints: "instance-type=t3.medium"
+  "4":
+    constraints: "instance-type=t3.small"
+
+applications:
+  ceph-mon:
+    charm: ch:ceph-mon
+    num_units: 1
+    options:
+      expected-osd-count: *expected-osd-count
+      source: *openstack-origin
+      monitor-count: *expected-mon-count
+      customize-failure-domain: *customize-failure-domain
+    to:
+      - "0"
+    channel: quincy/edge
+
+  ceph-osd:
+    charm: ch:ceph-osd
+    num_units: 3
+    options:
+      source: *openstack-origin
+      # osd-devices: *osd-devices
+      customize-failure-domain: *customize-failure-domain
+      autotune: false
+      aa-profile-mode: complain
+    storage:
+      osd-devices: ebs,10G
+    to:
+      - "1"
+      - "2"
+      - "3"
+    channel: quincy/edge
+
+  ceph-radosgw:
+    charm: ch:ceph-radosgw
+    num_units: 1
+    options:
+      source: *openstack-origin
+    expose: true
+    to:
+      - "4"
+
+relations:
+  - [ceph-osd, ceph-mon]
+  - [ceph-radosgw, ceph-mon]
